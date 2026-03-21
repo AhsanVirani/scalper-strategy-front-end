@@ -46,13 +46,14 @@ function TopStatCard({
 }
 
 function StreakDot({ trade }: { trade: Trade }) {
-  const isWin = trade.pnl_dollars > 0;
+  const isWin = (trade.pnl_dollars ?? 0) > 0;
   return (
     <div
       title={`${fmt.dollars(trade.pnl_dollars)} (${fmt.r(trade.r_multiple)})`}
+      style={{ opacity: isWin ? 1 : 0.8 }}
       className={cn(
         "w-4 h-4 rounded-full flex-shrink-0",
-        isWin ? "bg-profit" : "bg-loss opacity-80"
+        isWin ? "bg-profit" : "bg-loss"
       )}
     />
   );

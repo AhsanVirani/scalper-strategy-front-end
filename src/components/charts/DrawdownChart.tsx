@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useId } from "react";
 import { AreaChart, Area, ResponsiveContainer, Tooltip, YAxis, ReferenceLine } from "recharts";
 
 interface DrawdownChartProps {
@@ -18,6 +18,9 @@ function computeDrawdown(equity: number[]): number[] {
 }
 
 export function DrawdownChart({ equityCurve, height = 90 }: DrawdownChartProps) {
+  const uid = useId().replace(/:/g, "");
+  const gradId = `ddGrad-${uid}`;
+
   const data = useMemo(() => {
     const clean = equityCurve.filter((v) => isFinite(v));
     return computeDrawdown(clean).map((v, i) => ({ i, dd: v }));
@@ -27,7 +30,7 @@ export function DrawdownChart({ equityCurve, height = 90 }: DrawdownChartProps) 
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
         <defs>
-          <linearGradient id="ddGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%"  stopColor="#ef4444" stopOpacity={0.25} />
             <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
           </linearGradient>
@@ -50,7 +53,7 @@ export function DrawdownChart({ equityCurve, height = 90 }: DrawdownChartProps) 
           dataKey="dd"
           stroke="#ef4444"
           strokeWidth={1.5}
-          fill="url(#ddGrad)"
+          fill={`url(#${gradId})`}
           dot={false}
           isAnimationActive={false}
         />
