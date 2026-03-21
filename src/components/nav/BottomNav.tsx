@@ -17,7 +17,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <nav className="md:hidden flex-shrink-0 border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="flex items-center justify-around h-16 px-2 safe-area-inset-bottom">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;
@@ -36,10 +36,10 @@ export function BottomNav() {
                 size={20}
                 className={cn(
                   "transition-colors",
-                  active && "text-[oklch(0.696_0.17_151)]"
+                  active && "text-[hsl(152,100%,38%)]"
                 )}
               />
-              <span className={cn("text-[10px] font-medium", active && "text-[oklch(0.696_0.17_151)]")}>
+              <span className={cn("text-[10px] font-medium", active && "text-[hsl(152,100%,38%)]")}>
                 {label}
               </span>
             </Link>

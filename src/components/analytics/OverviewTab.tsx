@@ -1,13 +1,12 @@
 "use client";
 
-import { useMemo } from "react";
-import { Metrics, Trade, deriveMetrics } from "@/lib/api";
+import { Metrics, AnalyticsOut } from "@/lib/api";
 import { fmt } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface OverviewTabProps {
   metrics: Metrics;
-  trades: Trade[];
+  analytics: AnalyticsOut;
 }
 
 function Row({ label, value, positive }: { label: string; value: string; positive?: boolean | null }) {
@@ -34,8 +33,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function OverviewTab({ metrics: m, trades }: OverviewTabProps) {
-  const d = useMemo(() => deriveMetrics(trades, m), [trades, m]);
+
+export function OverviewTab({ metrics: m, analytics: a }: OverviewTabProps) {
   const winPct = m.total_trades > 0 ? (m.winning_trades / m.total_trades) * 100 : 0;
 
   return (
@@ -63,22 +62,22 @@ export function OverviewTab({ metrics: m, trades }: OverviewTabProps) {
       </Section>
 
       <Section title="Averages">
-        <Row label="Avg Win"      value={fmt.dollars(m.avg_win)}      positive={true} />
-        <Row label="Avg Loss"     value={fmt.dollars(m.avg_loss)}     positive={false} />
-        <Row label="Avg Trade"    value={fmt.dollars(m.avg_trade)}    positive={m.avg_trade >= 0} />
-        <Row label="Largest Win"  value={fmt.dollars(d.largest_win)}  positive={true} />
-        <Row label="Largest Loss" value={fmt.dollars(d.largest_loss)} positive={false} />
-        <Row label="Avg Win (R)"  value={fmt.r(d.avg_win_r)}          positive={true} />
-        <Row label="Avg Loss (R)" value={fmt.r(d.avg_loss_r)}         positive={false} />
+        <Row label="Avg Win"      value={fmt.dollars(m.avg_win)}        positive={true} />
+        <Row label="Avg Loss"     value={fmt.dollars(m.avg_loss)}       positive={false} />
+        <Row label="Avg Trade"    value={fmt.dollars(m.avg_trade)}      positive={m.avg_trade >= 0} />
+        <Row label="Largest Win"  value={fmt.dollars(a.largest_win)}    positive={true} />
+        <Row label="Largest Loss" value={fmt.dollars(a.largest_loss)}   positive={false} />
+        <Row label="Avg Win (R)"  value={fmt.r(a.avg_win_r)}            positive={true} />
+        <Row label="Avg Loss (R)" value={fmt.r(a.avg_loss_r)}           positive={false} />
       </Section>
 
       <Section title="Risk">
         <Row label="Sharpe Ratio"    value={fmt.num(m.sharpe_ratio)}              positive={null} />
         <Row label="Max Drawdown"    value={`-${fmt.pctAbs(m.max_drawdown_pct)}`} positive={false} />
         <Row label="Max DD ($)"      value={fmt.dollars(m.max_drawdown_dollars)}  positive={false} />
-        <Row label="Recovery Factor" value={fmt.num(d.recovery_factor)}           positive={d.recovery_factor >= 1} />
-        <Row label="Win Streak"      value={String(d.max_consec_wins)}            positive={true} />
-        <Row label="Loss Streak"     value={String(d.max_consec_losses)}          positive={false} />
+        <Row label="Recovery Factor" value={fmt.num(a.recovery_factor)}           positive={a.recovery_factor >= 1} />
+        <Row label="Win Streak"      value={String(a.max_consec_wins)}            positive={true} />
+        <Row label="Loss Streak"     value={String(a.max_consec_losses)}          positive={false} />
       </Section>
 
       <Section title="Trades">
@@ -87,6 +86,7 @@ export function OverviewTab({ metrics: m, trades }: OverviewTabProps) {
         <Row label="Losers"     value={`${m.losing_trades} (${fmt.pctAbs(100 - m.win_rate_pct)})`} positive={false} />
         <Row label="Expectancy" value={fmt.dollars(m.avg_trade)}                            positive={m.avg_trade >= 0} />
       </Section>
+
     </div>
   );
 }

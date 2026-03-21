@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { BottomNav } from "@/components/nav/BottomNav";
+import { Sidebar } from "@/components/nav/Sidebar";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -15,7 +16,7 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Trading Platform",
+  title: "LVN Scalper",
   description: "LVN/FVG Scalping Strategy — Backtesting & Analytics",
   manifest: "/manifest.json",
   appleWebApp: {
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: "#0b0e13",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -43,11 +44,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
-        <div className="flex flex-col h-dvh overflow-hidden">
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
-            {children}
-          </main>
-          <BottomNav />
+        {/* Desktop: sidebar + content. Mobile: full-height column + bottom nav */}
+        <div className="flex flex-col md:flex-row h-dvh overflow-hidden">
+          <Sidebar />
+          <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden">
+              {children}
+            </main>
+            <BottomNav />
+          </div>
         </div>
       </body>
     </html>

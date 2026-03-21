@@ -37,6 +37,14 @@ export const fmt = {
       timeZone: "America/New_York",
     }),
 
+  /** ISO string → "Mar 12  14:35" in ET */
+  dateTime: (iso: string) => {
+    const d = new Date(iso);
+    const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/New_York" });
+    const time = d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" });
+    return `${date}  ${time}`;
+  },
+
   /** ISO string → "Mar 12" */
   dateShort: (iso: string) =>
     new Date(iso).toLocaleDateString("en-US", {

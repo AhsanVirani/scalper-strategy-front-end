@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, ReferenceLine, Cell, AreaChart, Area,
 } from "recharts";
-import type { Trade } from "@/lib/api";
+import type { AnalyticsOut, Metrics, Trade } from "@/lib/api";
 import { fmt } from "@/lib/format";
 
 interface RiskTabProps {
+  analytics: AnalyticsOut;
+  metrics: Metrics;
   trades: Trade[];
 }
 
@@ -32,10 +34,10 @@ function RTooltip({ active, payload }: { active?: boolean; payload?: readonly { 
   return tip(<><p className="text-muted-foreground">Trade {i}</p><p className={`font-bold ${r >= 0 ? "text-profit" : "text-loss"}`}>{r >= 0 ? "+" : ""}{r.toFixed(2)}R</p></>);
 }
 
-function DayTooltip({ active, payload }: { active?: boolean; payload?: readonly { payload: { date: string; pnl: number } }[] }) {
+function DayTooltip({ active, payload }: { active?: boolean; payload?: readonly { payload: { label: string; pnl: number } }[] }) {
   if (!active || !payload?.[0]) return null;
-  const { date, pnl } = payload[0].payload;
-  return tip(<><p className="text-muted-foreground">{date}</p><p className={`font-bold tabular ${pnl >= 0 ? "text-profit" : "text-loss"}`}>{pnl >= 0 ? "+" : ""}{fmt.dollars(pnl)}</p></>);
+  const { label, pnl } = payload[0].payload;
+  return tip(<><p className="text-muted-foreground">{label}</p><p className={`font-bold tabular ${pnl >= 0 ? "text-profit" : "text-loss"}`}>{pnl >= 0 ? "+" : ""}{fmt.dollars(pnl)}</p></>);
 }
 
 function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color?: string }) {
@@ -68,9 +70,9 @@ function StreakDots({ trades }: { trades: Trade[] }) {
 function PnlPeriodChart({
   daily, weekly, monthly,
 }: {
-  daily: { date: string; pnl: number }[];
-  weekly: { date: string; pnl: number }[];
-  monthly: { date: string; pnl: number }[];
+  daily: { label: string; pnl: number }[];
+  weekly: { label: string; pnl: number }[];
+  monthly: { label: string; pnl: number }[];
 }) {
   const [tab, setTab] = useState<"daily" | "weekly" | "monthly">("daily");
   const data = tab === "daily" ? daily : tab === "weekly" ? weekly : monthly;
@@ -96,7 +98,7 @@ function PnlPeriodChart({
       {data.length === 0 ? null : (
         <ResponsiveContainer width="100%" height={130}>
           <BarChart data={data} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-            <XAxis dataKey="date" tick={{ fontSize: 9, fill: "rgba(160,175,200,0.6)" }} tickLine={false} axisLine={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 9, fill: "rgba(160,175,200,0.6)" }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 9, fill: "rgba(160,175,200,0.5)" }} tickLine={false} axisLine={false} />
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.08)" />
             <Tooltip content={<DayTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
@@ -112,109 +114,30 @@ function PnlPeriodChart({
   );
 }
 
-export function RiskTab({ trades }: RiskTabProps) {
-  const runningWR = useMemo(() => {
-    let wins = 0;
-    return trades.map((t, i) => {
-      if (t.pnl_dollars > 0) wins++;
-      return { i: i + 1, wr: (wins / (i + 1)) * 100 };
-    });
-  }, [trades]);
+export function RiskTab({ analytics: a, metrics: m, trades }: RiskTabProps) {
+  const runningWR = a.running_wr;
+  const runningR  = a.cumulative_r;
 
-  const runningR = useMemo(() => {
-    let cumR = 0;
-    return trades.map((t, i) => {
-      cumR += isFinite(t.r_multiple) ? t.r_multiple : 0;
-      return { i: i + 1, r: +cumR.toFixed(3) };
-    });
-  }, [trades]);
+  const finalR      = runningR[runningR.length - 1]?.r ?? 0;
+  const currentWR   = runningWR[runningWR.length - 1]?.wr ?? 0;
 
-  const dailyPnl = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const t of trades) {
-      const key = fmt.dateShort(t.entry_time);
-      map[key] = (map[key] ?? 0) + t.pnl_dollars;
-    }
-    return Object.entries(map).map(([date, pnl]) => ({ date, pnl: +pnl.toFixed(2) }));
-  }, [trades]);
+  const maxW = a.max_consec_wins;
+  const maxL = a.max_consec_losses;
 
-  const weeklyPnl = useMemo(() => {
-    const map: Record<string, number> = {};
-    for (const t of trades) {
-      const d = new Date(t.entry_time);
-      // ISO week: find Monday of this week
-      const day = d.getDay() || 7;
-      const mon = new Date(d);
-      mon.setDate(d.getDate() - day + 1);
-      const key = mon.toISOString().slice(0, 10);
-      map[key] = (map[key] ?? 0) + t.pnl_dollars;
-    }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, pnl]) => ({ date: `W ${date.slice(5)}`, pnl: +pnl.toFixed(2) }));
-  }, [trades]);
-
-  const monthlyPnl = useMemo(() => {
-    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const map: Record<string, number> = {};
-    for (const t of trades) {
-      const d = new Date(t.entry_time);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map[key] = (map[key] ?? 0) + t.pnl_dollars;
-    }
-    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, pnl]) => {
-        const [y, m] = key.split("-");
-        return { date: `${MONTHS[parseInt(m) - 1]} ${y.slice(2)}`, pnl: +pnl.toFixed(2) };
-      });
-  }, [trades]);
-
-  // Streak stats
-  const { maxW, maxL, curW, curL } = useMemo(() => {
-    let maxW = 0, maxL = 0, curW = 0, curL = 0;
-    for (const t of trades) {
-      if (t.pnl_dollars > 0) { curW++; curL = 0; maxW = Math.max(maxW, curW); }
-      else { curL++; curW = 0; maxL = Math.max(maxL, curL); }
-    }
-    return { maxW, maxL, curW, curL };
-  }, [trades]);
-
-  // Drawdown from peak
-  const drawdown = useMemo(() => {
-    let peak = 0, maxDD = 0, cumPnl = 0;
-    for (const t of trades) {
-      cumPnl += t.pnl_dollars;
-      if (cumPnl > peak) peak = cumPnl;
-      const dd = peak - cumPnl;
-      if (dd > maxDD) maxDD = dd;
-    }
-    return maxDD;
-  }, [trades]);
-
-  // Profit factor
-  const { profitFactor, avgWin, avgLoss } = useMemo(() => {
-    const wins = trades.filter(t => t.pnl_dollars > 0);
-    const losses = trades.filter(t => t.pnl_dollars < 0);
-    const grossWin = wins.reduce((s, t) => s + t.pnl_dollars, 0);
-    const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl_dollars, 0));
-    return {
-      profitFactor: grossLoss > 0 ? grossWin / grossLoss : Infinity,
-      avgWin: wins.length ? grossWin / wins.length : 0,
-      avgLoss: losses.length ? grossLoss / losses.length : 0,
-    };
-  }, [trades]);
-
-  const finalR = runningR[runningR.length - 1]?.r ?? 0;
-  const currentWR = runningWR[runningWR.length - 1]?.wr ?? 0;
+  // current_streak: positive = win streak, negative = loss streak
+  const streak = a.current_streak;
+  const curW = streak > 0 ? streak : 0;
+  const curL = streak < 0 ? Math.abs(streak) : 0;
 
   return (
     <div className="flex flex-col gap-3">
 
       {/* Key risk stats */}
       <div className="grid grid-cols-2 gap-2">
-        <StatCard label="Profit Factor" value={isFinite(profitFactor) ? profitFactor.toFixed(2) : "∞"} sub="gross win / gross loss" color={profitFactor >= 1.5 ? "text-profit" : profitFactor >= 1 ? "text-yellow-400" : "text-loss"} />
-        <StatCard label="Max Drawdown" value={fmt.dollars(drawdown)} sub="peak → trough" color="text-loss" />
-        <StatCard label="Avg Win" value={fmt.dollars(avgWin)} color="text-profit" />
-        <StatCard label="Avg Loss" value={fmt.dollars(avgLoss)} color="text-loss" />
+        <StatCard label="Profit Factor" value={isFinite(m.profit_factor) ? m.profit_factor.toFixed(2) : "∞"} sub="gross win / gross loss" color={m.profit_factor >= 1.5 ? "text-profit" : m.profit_factor >= 1 ? "text-yellow-400" : "text-loss"} />
+        <StatCard label="Max Drawdown" value={fmt.dollars(m.max_drawdown_dollars)} sub="peak → trough" color="text-loss" />
+        <StatCard label="Avg Win" value={fmt.dollars(m.avg_win)} color="text-profit" />
+        <StatCard label="Avg Loss" value={fmt.dollars(m.avg_loss)} color="text-loss" />
       </div>
 
       {/* Streak visual */}
@@ -287,7 +210,7 @@ export function RiskTab({ trades }: RiskTabProps) {
       </div>
 
       {/* P&L bar chart — Daily / Weekly / Monthly */}
-      <PnlPeriodChart daily={dailyPnl} weekly={weeklyPnl} monthly={monthlyPnl} />
+      <PnlPeriodChart daily={a.daily_pnl} weekly={a.weekly_pnl} monthly={a.monthly_pnl} />
 
     </div>
   );

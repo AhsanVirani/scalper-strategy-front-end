@@ -1,24 +1,28 @@
 /**
  * Zustand global store.
  * Params match Python BacktestRequest field names exactly.
+ *
+ * DEFAULT_PARAMS mirrors config.toml so the frontend default run
+ * produces identical results to `python -m scalper dryrun`.
  */
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { BacktestParams, BacktestResult } from "./api";
 
+// Mirrors config.toml exactly — keep in sync with the Python config.
 export const DEFAULT_PARAMS: Required<BacktestParams> = {
-  start_date: "2025-03-07",
-  end_date: "2026-03-14",
+  start_date: (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 2); return d.toISOString().slice(0, 10); })(),
+  end_date: new Date().toISOString().slice(0, 10),
   risk_per_trade_dollars: 200,
-  max_daily_loss: 400,
+  max_daily_loss: 500,
   max_trades_per_day: 4,
   initial_capital: 10000,
   stop_loss_min_points: 8,
   stop_loss_max_points: 8,
   take_profit_min_points: 10,
-  take_profit_max_points: 25,
-  breakeven_r: 1.0,
+  take_profit_max_points: 40,
+  breakeven_r: 1.5,
   entry_zone_percent: 0.75,
   avoid_lunch: true,
   rth_only: true,
@@ -60,7 +64,7 @@ export const useStore = create<AppStore>()(
       setApiUrl: (apiUrl) => set({ apiUrl }),
     }),
     {
-      name: "trading-store-v3",
+      name: "trading-store-v5",
       partialize: (s) => ({ params: s.params, apiUrl: s.apiUrl }),
     }
   )
