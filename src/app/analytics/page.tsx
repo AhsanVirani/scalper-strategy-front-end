@@ -7,17 +7,19 @@ import { OverviewTab } from "@/components/analytics/OverviewTab";
 import { DistributionTab } from "@/components/analytics/DistributionTab";
 import { TimeTab } from "@/components/analytics/TimeTab";
 import { RiskTab } from "@/components/analytics/RiskTab";
+import { AgentTab } from "@/components/analytics/AgentTab";
 import { BarChart2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmt } from "@/lib/format";
 
-type Tab = "overview" | "distribution" | "time" | "risk";
+type Tab = "overview" | "distribution" | "time" | "risk" | "agent";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "overview",     label: "Overview" },
   { key: "distribution", label: "Distrib." },
   { key: "time",         label: "Time" },
   { key: "risk",         label: "Risk" },
+  { key: "agent",        label: "Agent" },
 ];
 
 export default function AnalyticsPage() {
@@ -36,7 +38,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  const { metrics, trades } = result;
+  const { metrics, trades, analytics } = result;
 
   return (
     <div className="flex flex-col pb-8">
@@ -71,10 +73,11 @@ export default function AnalyticsPage() {
 
       {/* Tab content */}
       <div className="px-4">
-        {tab === "overview"     && <OverviewTab metrics={metrics} trades={trades} />}
-        {tab === "distribution" && <DistributionTab trades={trades} />}
-        {tab === "time"         && <TimeTab trades={trades} />}
-        {tab === "risk"         && <RiskTab trades={trades} />}
+        {tab === "overview"     && <OverviewTab metrics={metrics} analytics={analytics} />}
+        {tab === "distribution" && <DistributionTab analytics={analytics} />}
+        {tab === "time"         && <TimeTab analytics={analytics} />}
+        {tab === "risk"         && <RiskTab analytics={analytics} metrics={metrics} trades={trades} />}
+        {tab === "agent"        && <AgentTab analytics={analytics} />}
       </div>
     </div>
   );

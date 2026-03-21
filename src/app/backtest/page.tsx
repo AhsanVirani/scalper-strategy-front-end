@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { runBacktest } from "@/lib/api";
+import { runBacktest, type BacktestParams } from "@/lib/api";
 import { ParamSlider } from "@/components/backtest/ParamSlider";
 import { ResultsPanel } from "@/components/backtest/ResultsPanel";
 import { Switch } from "@/components/ui/switch";
-import { ChevronDown, ChevronUp, Play, RotateCcw, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Play, RotateCcw, Loader2, Bot } from "lucide-react";
 
 const QUICK_RANGES: { label: string; months: number | null }[] = [
   { label: "1M", months: 1 },
@@ -18,6 +18,7 @@ const QUICK_RANGES: { label: string; months: number | null }[] = [
 
 function subtractMonths(months: number): string {
   const d = new Date();
+  d.setDate(1); // avoid month-boundary issues
   d.setMonth(d.getMonth() - months);
   return d.toISOString().slice(0, 10);
 }
@@ -39,8 +40,31 @@ export default function BacktestPage() {
   async function handleRun() {
     setError(null);
     setLoading(true);
+    if (params.start_date >= params.end_date) {
+      setError("Start date must be before end date.");
+      setLoading(false);
+      return;
+    }
     try {
-      const data = await runBacktest(apiUrl, params);
+      // Only send the fields the frontend exposes — everything else falls back
+      // to config.toml defaults on the server, matching `python -m scalper dryrun`.
+      const overrides: BacktestParams = {
+        start_date: params.start_date,
+        end_date: params.end_date,
+        stop_loss_min_points: params.stop_loss_min_points,
+        stop_loss_max_points: params.stop_loss_max_points,
+        take_profit_min_points: params.take_profit_min_points,
+        take_profit_max_points: params.take_profit_max_points,
+        breakeven_r: params.breakeven_r,
+        entry_zone_percent: params.entry_zone_percent,
+        risk_per_trade_dollars: params.risk_per_trade_dollars,
+        max_daily_loss: params.max_daily_loss,
+        max_trades_per_day: params.max_trades_per_day,
+        initial_capital: params.initial_capital,
+        avoid_lunch: params.avoid_lunch,
+        rth_only: params.rth_only,
+      };
+      const data = await runBacktest(apiUrl, overrides);
       setResult(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
@@ -145,6 +169,22 @@ export default function BacktestPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Agent config info */}
+      <div className="mx-4 mb-3 rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Bot size={14} className="text-[hsl(217,91%,60%)]" />
+            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Agent Sizing</p>
+          </div>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-[hsl(217_91%_60%/0.15)] text-[hsl(217,91%,60%)] border border-[hsl(217_91%_60%/0.25)]">
+            ENABLED
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Agent dynamically sizes positions based on 5 scoring criteria. Score range: −4 to +4. Multiplier range: 0.25× to 1.5×.
+        </p>
       </div>
 
       {/* Error */}

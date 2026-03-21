@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { type LiveMessage } from "@/lib/api";
 import { TradeBadge } from "@/components/shared/TradeBadge";
@@ -11,17 +11,24 @@ export default function LivePage() {
   const apiUrl = useStore((s) => s.apiUrl);
   const [msg,       setMsg]       = useState<LiveMessage | null>(null);
   const [connected, setConnected] = useState(false);
+  const [error,     setError]     = useState<string | null>(null);
+  const reconnectCount = useRef(0);
 
   useEffect(() => {
     let ws: WebSocket | null = null;
     let dead = false;
+    reconnectCount.current = 0;
 
     function connect() {
       if (dead) return;
-      const wsBase = apiUrl.replace(/^http/, "ws");
-      ws = new WebSocket(`${wsBase}/live`);
-      ws.onopen    = () => setConnected(true);
-      ws.onclose   = () => { setConnected(false); if (!dead) setTimeout(connect, 3000); };
+      if (reconnectCount.current >= 10) {
+        setError("Connection lost after 10 attempts. Please reload.");
+        return;
+      }
+      const wsUrl = apiUrl.replace(/^https?:\/\//, (match) => match.startsWith("https") ? "wss://" : "ws://");
+      ws = new WebSocket(`${wsUrl}/live`);
+      ws.onopen    = () => { setConnected(true); reconnectCount.current = 0; };
+      ws.onclose   = () => { setConnected(false); if (!dead) { reconnectCount.current += 1; setTimeout(connect, 3000); } };
       ws.onerror   = () => setConnected(false);
       ws.onmessage = (e) => {
         try { setMsg(JSON.parse(e.data)); setConnected(true); } catch { /* skip */ }
@@ -45,6 +52,13 @@ export default function LivePage() {
           {connected ? "Connected" : "Disconnected"}
         </div>
       </div>
+
+      {/* Reconnect error */}
+      {error && (
+        <div className="mx-4 mb-3 rounded-xl border border-loss/30 bg-loss/10 px-4 py-3">
+          <p className="text-sm text-loss font-medium">{error}</p>
+        </div>
+      )}
 
       {/* Phase 2 notice */}
       {msg?.phase === "phase-2-not-yet-live" && (

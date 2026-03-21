@@ -1,42 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
-import type { Trade } from "@/lib/api";
+import type { AnalyticsOut } from "@/lib/api";
 import { fmt } from "@/lib/format";
 
 interface DistributionTabProps {
-  trades: Trade[];
-}
-
-function buildHistogram(values: number[], bins = 12, isR = false): { label: string; count: number; midpoint: number }[] {
-  const clean = values.filter((v) => isFinite(v) && !isNaN(v));
-  if (clean.length === 0) return [];
-  const min = Math.min(...clean);
-  const max = Math.max(...clean);
-  const range = max - min || 1;
-  const binWidth = range / bins;
-
-  return Array.from({ length: bins }, (_, i) => {
-    const lo = min + i * binWidth;
-    const hi = lo + binWidth;
-    const midpoint = (lo + hi) / 2;
-    const count = clean.filter((v) => i === bins - 1 ? v >= lo && v <= hi : v >= lo && v < hi).length;
-    let label: string;
-    if (isR) {
-      label = `${midpoint >= 0 ? "+" : ""}${midpoint.toFixed(1)}R`;
-    } else {
-      const abs = Math.abs(midpoint);
-      label = abs >= 1000
-        ? `${midpoint >= 0 ? "+" : "-"}$${(abs / 1000).toFixed(1)}k`
-        : `${midpoint >= 0 ? "+" : ""}$${Math.round(midpoint)}`;
-    }
-    return { label, count, midpoint };
-  });
-}
-
-function getR(t: Trade): number {
-  return t.r_multiple;
+  analytics: AnalyticsOut;
 }
 
 function makeTooltip(formatter: (v: number) => string) {
@@ -54,26 +23,9 @@ function makeTooltip(formatter: (v: number) => string) {
 const PnlTooltip = makeTooltip((v) => `${v >= 0 ? "+" : ""}${fmt.dollars(v)}`);
 const RTooltip   = makeTooltip((v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}R`);
 
-export function DistributionTab({ trades }: DistributionTabProps) {
-  const pnlHist = useMemo(() => buildHistogram(trades.map((t) => t.pnl_dollars)), [trades]);
-  const rHist   = useMemo(() => buildHistogram(trades.map(getR), 12, true), [trades]);
-
-  const exitCounts = useMemo(() => {
-    const map: Record<string, { count: number; pnl: number; wins: number }> = {};
-    for (const t of trades) {
-      if (!map[t.exit_reason]) map[t.exit_reason] = { count: 0, pnl: 0, wins: 0 };
-      map[t.exit_reason].count++;
-      map[t.exit_reason].pnl += t.pnl_dollars;
-      if (t.pnl_dollars > 0) map[t.exit_reason].wins++;
-    }
-    return Object.entries(map)
-      .map(([reason, { count, pnl, wins }]) => ({
-        reason, count, pnl,
-        pct: trades.length ? (count / trades.length * 100) : 0,
-        wr: count > 0 ? (wins / count * 100) : 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-  }, [trades]);
+export function DistributionTab({ analytics: a }: DistributionTabProps) {
+  const pnlHist = a.pnl_histogram;
+  const rHist   = a.r_histogram;
 
   return (
     <div className="flex flex-col gap-3">
@@ -132,22 +84,22 @@ export function DistributionTab({ trades }: DistributionTabProps) {
       {/* Exit reasons */}
       <div className="rounded-xl border border-border bg-card p-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Exit Reasons</p>
-        {exitCounts.map(({ reason, count, pct, pnl, wr }) => (
+        {a.exit_reasons.map(({ reason, count, pct, total_pnl, win_rate_pct }) => (
           <div key={reason} className="py-2.5 border-b border-border last:border-0">
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold">{reason}</span>
                 <span className="text-[10px] text-muted-foreground">{count} · {fmt.pctAbs(pct)}</span>
               </div>
-              <span className={`text-sm font-bold tabular ${pnl >= 0 ? "text-profit" : "text-loss"}`}>
-                {fmt.dollars(pnl)}
+              <span className={`text-sm font-bold tabular ${total_pnl >= 0 ? "text-profit" : "text-loss"}`}>
+                {fmt.dollars(total_pnl)}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="flex-1 h-1 rounded-full bg-muted overflow-hidden">
-                <div className="h-full rounded-full bg-profit" style={{ width: `${wr}%` }} />
+                <div className="h-full rounded-full bg-profit" style={{ width: `${win_rate_pct}%` }} />
               </div>
-              <span className="text-[10px] text-muted-foreground w-12 text-right tabular">{fmt.pctAbs(wr)} WR</span>
+              <span className="text-[10px] text-muted-foreground w-12 text-right tabular">{fmt.pctAbs(win_rate_pct)} WR</span>
             </div>
           </div>
         ))}
